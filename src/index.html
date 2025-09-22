@@ -364,7 +364,6 @@
                 { url: 'ms-screenclip:', desc: 'Screen clipping / Snip & Sketch' },
                 { url: 'ms-people:', desc: 'People app' },
                 { url: 'file:///C:/', desc: 'Open File Explorer (may restart explorer.exe)' },
-                // Office protocols often present if Office or stubs are installed:
                 { url: 'ms-word:', desc: 'Microsoft Word (if installed/stub)' },
                 { url: 'ms-excel:', desc: 'Microsoft Excel (if installed/stub)' }
             ];
@@ -454,7 +453,7 @@
                 return 'https://' + s;
             }
 
-            function askUser(question, timeoutMs = 5000) {
+            function askUser(question, timeoutMs = 7000) {
                 return new Promise(resolve => {
                     modalText.textContent = question;
                     modalCountdown.textContent = String(Math.ceil(timeoutMs / 1000));
@@ -553,11 +552,9 @@
                     const heuristic = await detectExternalOpen(1500);
                     console.log('Heuristic detection result:', heuristic);
 
-                    // Show modal asking user for confirmation and allow up to 5s (5000ms)
                     const question = `Did the app associated with "${p.url}" open on your PC?`;
-                    // If heuristic says yes, prefill the question text to indicate we detected focus change
                     const modalQuestion = heuristic ? question + ' (we detected a focus change — likely launched)' : question;
-                    const userAnswer = await askUser(modalQuestion, 5000);
+                    const userAnswer = await askUser(modalQuestion, 7000);
                     console.log('User response:', userAnswer);
 
                     // - 'yes' -> ok
@@ -656,7 +653,6 @@
         </div>
     </div>
     <div class="toolbar">
-        <button class="btn" onclick="window.__pocLogger && window.__pocLogger.copy()">Copy Logs</button>
         <button class="btn" onclick="window.__pocLogger && window.__pocLogger.clear()">Clear</button>
         <span class="muted">Logs mirror to DevTools console.</span>
     </div>
@@ -712,10 +708,9 @@
     </div>
     <div style="padding-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
         <p class="subtle">Extras</p>
-        <button onclick="downloadStubFile()">Download Stub File</button>
         <button onclick="this.disabled=true;location.reload();">Reload Page</button>
         <button onclick="copyCurrentUrl()">Copy Current URL</button>
-        <button onclick="alert('Sicily Kiosk Hijacker Version 1.0 Author: @genr234');">About</button>
+        <button onclick="alert('Sicily Kiosk Hijacker Version 1.0.1 Author: @genr234');">About</button>
     </div>
     <table class="results" aria-label="Protocol test results">
         <thead>
