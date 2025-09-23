@@ -593,6 +593,7 @@
                 if (anyOk) {
                     setStepDone(step3);
                     console.log('Escaped Chrome sandbox successfully');
+                    localStorage.setItem('yui:eligibility', true);
                 } else {
                     console.warn('No working protocol found; sandbox escape not confirmed');
                 }
@@ -710,6 +711,7 @@
         <p class="subtle">Extras</p>
         <button onclick="this.disabled=true;location.reload();">Reload Page</button>
         <button onclick="copyCurrentUrl()">Copy Current URL</button>
+        <button onclick="window.location.href='https://hijacker.sicilykiosk.genr234.com/yui'">Yui</button>
         <button onclick="alert('Sicily Kiosk Hijacker Version 1.0.1 Author: @genr234');">About</button>
     </div>
     <table class="results" aria-label="Protocol test results">

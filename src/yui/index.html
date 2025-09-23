@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yui</title>
+</head>
+
+<body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!localStorage.getItem('yui:eligibility')) {
+                document.getElementById('ineligible-message').style.display = 'block';
+                throw new Error('Ineligible for Yui');
+            } else {
+                console.log('Eligible for Yui');
+            }
+        });
+    </script>
+    <svg width="175" height="75" viewBox="0 0 973 584" xmlns="http://www.w3.org/2000/svg">
+        <text id="Yui" xml:space="preserve" x="-70.5125" y="550" font-family="Zapfino" font-size="465"
+            fill="#000000">Yui</text>
+    </svg><span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;">
+        <strong>A fully featured, battery included SicilyKiosk jailbreak</strong>
+    </span>
+    <span>v1.0rc</span>
+    <br>
+    <div id="ineligible-message" style="display: none;">
+        <h1>Ineligible</h1>
+        <p>Your browser does not meet the eligibility requirements for Yui. Please ensure you have successfully escaped
+            the Chrome sandbox using SicilyKioskHijacker.</p>
+        <p>If you know what you're doing press the button below to disable this message.</p>
+        <button onclick="localStorage.setItem('yui:eligibility', true); location.reload();">I'm sure I know what I'm
+            doing</button>
+    </div>
+    <h2>Install</h2>
+    <button onclick="window.location.href='./yui.user.js';">Install Yui (Tampermonkey)</button>
+    <button disabled>Download Yui (Standalone)</button>
+    <h2>Extras</h2>
+    <button onclick="window.location.href='https://hijacker.sicilykiosk.genr234.com/';">SicilyKiosk Hijacker</button>
+    <button onclick="window.location.href='https://www.tampermonkey.net/';">Tampermonkey</button>
+</body>
+
+</html>
