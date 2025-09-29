@@ -5,6 +5,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yui</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono&display=swap');
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #fefefe;
+            font-family: 'Space Mono', monospace;
+        }
+
+        h1,
+        h2 {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        button {
+            font-family: 'Space Mono', monospace;
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 5px;
+            border: 2px solid #000;
+            background-color: #ffe600;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        svg {
+            display: block;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 
 <body>
@@ -40,6 +75,7 @@
     <h2>Extras</h2>
     <button onclick="window.location.href='https://hijacker.sicilykiosk.genr234.com/';">SicilyKiosk Hijacker</button>
     <button onclick="window.location.href='https://www.tampermonkey.net/';">Tampermonkey</button>
+    <button onclick="window.location.href='/yui/apps/';">App Library</button>
 </body>
 
 </html>
