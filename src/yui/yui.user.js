@@ -68,11 +68,11 @@
     },
   };
 
-  // Persistent preferences + theming + PIN
   const YUI_PREF_KEY = "yui_prefs";
   const YuiPrefs = {
     defaults: {
       theme: "light", // light | dark | high-contrast
+      securityPatch: "auto", // auto | off
       accent: "#d2a400",
       restoreLastPage: true,
       lastPage: "Home",
@@ -107,6 +107,8 @@
     setLastPage(page) {
       if (!this.current.restoreLastPage) return;
       if (this.current.lastPage === page) return;
+      // Don't save app pages as last page - only save system pages
+      if (page && page.startsWith("App:")) return;
       this.current.lastPage = page;
       this.save();
     },
@@ -130,7 +132,6 @@
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
       } catch (_) {
-        // Fallback (NOT cryptographically secure, but better than plain text)
         let h = 0;
         const s = String(pin);
         for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -143,7 +144,6 @@
         menu.dataset.theme = this.current.theme;
         menu.style.setProperty("--yui-accent", this.current.accent);
       }
-      // Update active button highlighting if menu present
       if (YuiNav && typeof YuiNav._highlightActive === "function") {
         try {
           YuiNav._highlightActive();
@@ -288,6 +288,8 @@
       #yui-menu[data-theme="high-contrast"] #yui-menu-content{background:#000;border-color:#fff;color:#fff}
       #yui-menu[data-theme="high-contrast"] button{background:#000;color:#fff;border-color:#fff}
       #yui-menu button:focus-visible{box-shadow:0 0 0 3px var(--yui-accent, #d2a400) inset !important}
+      #yui-menu[data-fullscreen="true"]{width:95vw;height:95vh;max-width:none;max-height:none}
+      #yui-menu[data-fullscreen="true"] #yui-menu-content{flex:1;max-height:none;min-height:none}
       #yui-pin-overlay input{letter-spacing:4px;}
       `;
       const style = document.createElement("style");
@@ -296,8 +298,25 @@
       document.head.appendChild(style);
       this._styleInjected = true;
     },
+    patchVulnerabilities() {
+      if (this.current.securityPatch === "off") return;
+      const iframeDisabler = document.createElement("style");
+      iframeDisabler.id = "yui-iframe-blocker";
+      iframeDisabler.textContent = `
+        iframe {
+          pointer-events: none;
+          user-select: none;
+        }
+        iframe[yui-security-ignore="true"] {
+          pointer-events: auto;
+          user-select: auto;
+        }
+      `;
+      document.head.appendChild(iframeDisabler);
+    },
   };
   YuiPrefs.init();
+  YuiPrefs.patchVulnerabilities();
 
   // Update last page on navigation
   YuiEvents.on("nav:show", ({ page }) => {
@@ -317,7 +336,8 @@
     register(name, renderFn, options = {}) {
       this.pages[name] = { render: renderFn, options: options || {} };
       if (this.navBarEl) this._ensureNavButton(name);
-      if (!this.current) this.show(name);
+      // Don't auto-show apps or pages, let the menu decide what to show
+      if (!this.current && !name.startsWith("App:")) this.show(name);
       YuiEvents.emit("nav:registered", { page: name });
     },
     show(name) {
@@ -360,8 +380,10 @@
         if (this.navBarEl)
           this.navBarEl.style.display = hideNav ? "none" : "flex";
         if (this.contentEl) {
-          this.contentEl.style.maxHeight = "72vh";
-          this.contentEl.style.minHeight = "60vh";
+          // Remove height constraints for true fullscreen
+          this.contentEl.style.maxHeight = "none";
+          this.contentEl.style.minHeight = "none";
+          this.contentEl.style.height = "auto";
         }
       } else {
         this.menuEl.removeAttribute("data-fullscreen");
@@ -369,6 +391,7 @@
         if (this.contentEl) {
           this.contentEl.style.maxHeight = "50vh";
           this.contentEl.style.minHeight = "160px";
+          this.contentEl.style.height = "auto";
         }
       }
       YuiEvents.emit("nav:fullscreen", { state, hideNav });
@@ -556,6 +579,7 @@
             fullscreen: !!def.fullscreen,
             immersive: !!def.immersive,
             icon: def.icon,
+            hideNavButton: true, // Don't show apps in nav menu
           }
         );
       }
@@ -793,77 +817,180 @@
 
     if (!YuiNav.pages.Apps) {
       YuiNav.register("Apps", (root) => {
-        const list = document.createElement("div");
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "16px";
+
         const apps = YuiApps.list();
         if (!apps.length) {
-          list.textContent =
-            "No apps installed yet. External scripts can call Yui.apps.register({...}).";
+          const empty = document.createElement("div");
+          empty.style.textAlign = "center";
+          empty.style.padding = "40px 20px";
+          empty.style.color = "#666";
+          empty.innerHTML = `
+            <div style="font-size: 48px; margin-bottom: 16px;">📦</div>
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">No Apps Installed</div>
+            <div style="font-size: 14px;">External scripts can register apps using Yui.apps.register({...})</div>
+          `;
+          wrap.appendChild(empty);
         } else {
+          // Create a grid layout for better kiosk scaling
+          const grid = document.createElement("div");
+          grid.style.display = "grid";
+          grid.style.gridTemplateColumns =
+            "repeat(auto-fill, minmax(280px, 1fr))";
+          grid.style.gap = "16px";
+          grid.style.padding = "8px";
+
           apps.forEach((app) => {
             const card = document.createElement("button");
             card.style.display = "flex";
-            card.style.flexDirection = "row";
+            card.style.flexDirection = "column";
             card.style.alignItems = "center";
             card.style.gap = "12px";
-            card.style.marginBottom = "8px";
-            card.textContent = "";
+            card.style.padding = "24px 16px";
+            card.style.border = "2px solid #ddd";
+            card.style.borderRadius = "12px";
+            card.style.background =
+              "linear-gradient(135deg, #fff 0%, #f8f9fa 100%)";
+            card.style.cursor = "pointer";
+            card.style.transition = "all 0.2s ease";
+            card.style.minHeight = "140px";
+            card.style.textAlign = "center";
+            card.style.position = "relative";
+            card.style.overflow = "hidden";
+
+            // Hover effects
+            card.addEventListener("mouseenter", () => {
+              card.style.transform = "translateY(-2px)";
+              card.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+              card.style.borderColor = "#bbb";
+            });
+            card.addEventListener("mouseleave", () => {
+              card.style.transform = "translateY(0)";
+              card.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+              card.style.borderColor = "#ddd";
+            });
+
+            // Icon section
+            const iconContainer = document.createElement("div");
+            iconContainer.style.width = "64px";
+            iconContainer.style.height = "64px";
+            iconContainer.style.display = "flex";
+            iconContainer.style.alignItems = "center";
+            iconContainer.style.justifyContent = "center";
+            iconContainer.style.borderRadius = "12px";
+            iconContainer.style.background = "rgba(0,0,0,0.05)";
+
             if (
-              (app.icon &&
-                app.icon.startsWith("http") &&
-                app.icon.match(/\.(png|jpe?g|gif|webp|svg)(\?|$)/i)) ||
-              app.icon.startsWith("data:")
+              app.icon &&
+              (app.icon.startsWith("http") || app.icon.startsWith("data:"))
             ) {
               const icon = document.createElement("img");
-              icon.style.width = "40px";
-              icon.style.height = "40px";
+              icon.style.width = "48px";
+              icon.style.height = "48px";
               icon.style.objectFit = "contain";
-              icon.style.borderRadius = "6px";
+              icon.style.borderRadius = "8px";
               icon.src = app.icon;
-              card.appendChild(icon);
+              icon.onerror = () => {
+                icon.style.display = "none";
+                iconContainer.textContent = "📦";
+                iconContainer.style.fontSize = "32px";
+              };
+              iconContainer.appendChild(icon);
             } else {
-              const icon = document.createElement("div");
-              icon.style.width = "40px";
-              icon.style.height = "40px";
-              icon.style.display = "flex";
-              icon.style.alignItems = "center";
-              icon.style.justifyContent = "center";
-              icon.style.fontSize = "24px";
-              icon.textContent = app.icon || "📦";
-              card.appendChild(icon);
+              iconContainer.style.fontSize = "32px";
+              iconContainer.textContent = app.icon || "📦";
             }
-            const label = document.createElement("span");
-            label.innerHTML = `<strong>${
-              app.name || app.id
-            }</strong><br/><small>${app.description || ""} v${
-              app.version
-            }</small>`;
-            card.appendChild(label);
-            card.onclick = () => {
+            card.appendChild(iconContainer);
+
+            // App name
+            const name = document.createElement("div");
+            name.style.fontSize = "16px";
+            name.style.fontWeight = "600";
+            name.style.color = "#333";
+            name.style.marginBottom = "4px";
+            name.textContent = app.name || app.id;
+            card.appendChild(name);
+
+            // App description
+            if (app.description) {
+              const desc = document.createElement("div");
+              desc.style.fontSize = "12px";
+              desc.style.color = "#666";
+              desc.style.lineHeight = "1.3";
+              desc.style.maxHeight = "32px";
+              desc.style.overflow = "hidden";
+              desc.textContent = app.description;
+              card.appendChild(desc);
+            }
+
+            // Version badge
+            const version = document.createElement("div");
+            version.style.position = "absolute";
+            version.style.top = "8px";
+            version.style.right = "8px";
+            version.style.fontSize = "10px";
+            version.style.background = "rgba(0,0,0,0.1)";
+            version.style.padding = "2px 6px";
+            version.style.borderRadius = "4px";
+            version.style.color = "#666";
+            version.textContent = `v${app.version}`;
+            card.appendChild(version);
+
+            card.onclick = (e) => {
+              e.preventDefault();
               if (app.render) {
                 YuiNav.show(`App:${app.name || app.id}`);
               }
             };
-            YuiContext.bind(card, () => [
-              {
-                label: "Open",
-                action: () => YuiNav.show(`App:${app.name || app.id}`),
-              },
-              {
-                label: "Uninstall",
-                action: () => {
-                  YuiApps.unregister(app.id);
+
+            YuiContext.bind(card, (e) => {
+              e.stopPropagation();
+              return [
+                {
+                  label: `Open ${app.name || app.id}`,
+                  action: () => YuiNav.show(`App:${app.name || app.id}`),
                 },
-              },
-              { separator: true },
-              { label: "Home", action: () => YuiNav.show("Home") },
-            ]);
-            list.appendChild(card);
+                { separator: true },
+                {
+                  label: "App Info",
+                  action: () => {
+                    alert(
+                      `Name: ${app.name || app.id}\nVersion: ${
+                        app.version
+                      }\nDescription: ${
+                        app.description || "No description"
+                      }\nID: ${app.id}`
+                    );
+                  },
+                },
+                {
+                  label: "Uninstall",
+                  action: () => {
+                    if (confirm(`Uninstall ${app.name || app.id}?`)) {
+                      YuiApps.unregister(app.id);
+                    }
+                  },
+                },
+                { separator: true },
+                { label: "Back to Home", action: () => YuiNav.show("Home") },
+              ];
+            });
+
+            grid.appendChild(card);
           });
+
+          wrap.appendChild(grid);
         }
-        root.appendChild(list);
+
+        root.appendChild(wrap);
+
         YuiContext.bind(root, () => [
           { label: "Refresh Apps", action: () => YuiNav.show("Apps") },
-          { label: "Home", action: () => YuiNav.show("Home") },
+          { separator: true },
+          { label: "Back to Home", action: () => YuiNav.show("Home") },
         ]);
       });
     }
@@ -876,13 +1003,29 @@
         form.style.gap = "14px";
         form.innerHTML = `
           <div style="display:flex;flex-direction:column;gap:6px">
-            <label style="font-weight:600">Theme
-              <select id="yui-pref-theme" style="width:100%;padding:6px 8px;border:1px solid #888;border-radius:6px">
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="high-contrast">High Contrast</option>
-              </select>
-            </label>
+        <label style="font-weight:600">Patch Vulnerabilities</label>
+        <select id="yui-security-patch" style="width:120px;padding:8px;border:1px solid #888;border-radius:6px;cursor:pointer">
+          <option value="auto" ${
+            prefs.securityPatch === "auto" ? "selected" : ""
+          }>Auto (recommended)</option>
+          <option value="off" ${
+            prefs.securityPatch === "off" ? "selected" : ""
+          }>Off (not recommended)</option>
+        </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-weight:600">Theme</label>
+            <select id="yui-pref-theme" style="width:120px;padding:8px;border:1px solid #888;border-radius:6px;cursor:pointer">
+              <option value="light" ${
+                prefs.theme === "light" ? "selected" : ""
+              }>Light</option>
+              <option value="dark" ${
+                prefs.theme === "dark" ? "selected" : ""
+              }>Dark</option>
+              <option value="high-contrast" ${
+                prefs.theme === "high-contrast" ? "selected" : ""
+              }>High Contrast</option>
+            </select>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <label style="font-weight:600">Accent Color
@@ -951,6 +1094,15 @@
           (e) => {
             YuiPrefs.update({ accent: e.target.value });
             flash("Accent updated");
+          },
+          { passive: true }
+        );
+        form.querySelector("#yui-security-patch").addEventListener(
+          "change",
+          (e) => {
+            YuiPrefs.update({ securityPatch: e.target.value });
+            YuiPrefs.patchVulnerabilities();
+            flash("Security patch preference saved");
           },
           { passive: true }
         );
@@ -1054,7 +1206,18 @@
     }
 
     Object.keys(YuiNav.pages).forEach((name) => YuiNav._ensureNavButton(name));
-    YuiNav.show(YuiNav.current || "Home");
+
+    // Ensure we always start with a system page, not an app
+    let startPage = "Home";
+    if (YuiPrefs.current.restoreLastPage && YuiPrefs.current.lastPage) {
+      const lastPage = YuiPrefs.current.lastPage;
+      // Only restore if it's a system page (not an app) and it exists
+      if (!lastPage.startsWith("App:") && YuiNav.pages[lastPage]) {
+        startPage = lastPage;
+      }
+    }
+
+    YuiNav.show(startPage);
 
     document.body.appendChild(menu);
     applyResponsiveLayout();
@@ -1072,7 +1235,8 @@
           if (
             YuiPrefs.current.restoreLastPage &&
             YuiPrefs.current.lastPage &&
-            YuiNav.pages[YuiPrefs.current.lastPage]
+            YuiNav.pages[YuiPrefs.current.lastPage] &&
+            !YuiPrefs.current.lastPage.startsWith("App:")
           ) {
             YuiNav.show(YuiPrefs.current.lastPage);
           }
