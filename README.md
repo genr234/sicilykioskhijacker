@@ -4,9 +4,13 @@ This is a simple website i made to bypass the chrome sandbox contained in [Digik
 
 It features Yui, a "jailbreak" for the default page shown on digikiosk variants named "Sicilykiosks" which allows users to publish scripts specifivally targeting those units.
 
+![SicilyKiosk Hijacker working live](image1.JPG)
+
 # Yui 
 
 Yui features some apis (storage and others coming soon) that developers can use to extend the normal sicilykiosk functionality and can also go hidden if needed.
+
+![Yui Working Live](image2.jpg)
 
 ## Included apps
 ### Youtube
